@@ -39,7 +39,7 @@ var app = connect(
     console.error('%s %s\n%s', req.method, req.url, msg);
     res.statusCode = 500;
     res.setHeader('content-type', 'text/plain');
-    res.end(msg);
+    res.end(msg + '\n');
   }
 );
 
