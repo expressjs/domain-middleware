@@ -1,6 +1,6 @@
 {
   "name": "domain-middleware",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "uncaughtException middleware for connect, base on `domain` module.",
   "main": "index.js",
   "scripts": {
@@ -20,7 +20,7 @@
     "url": "git://github.com/fengmk2/domain-middleware.git"
   },
   "keywords": [
-    "domain", "uncaughtException", "error", "connect"
+    "domain", "uncaughtException", "error", "connect", "cluster"
   ],
   "engines": {
     "node": ">= 0.8.0"
