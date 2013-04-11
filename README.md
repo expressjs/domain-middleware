@@ -7,6 +7,8 @@ domain-middleware [![Build Status](https://secure.travis-ci.org/fengmk2/domain-m
 
 Try to make a better [connect-domain](https://github.com/baryshev/connect-domain) module.
 
+[Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
+
 * jscoverage: [100%](http://fengmk2.github.com/coverage/domain-middleware.html)
 
 ## Install
@@ -17,12 +19,22 @@ $ npm install domain-middleware
 
 ## Usage
 
-```js
-var domain = require('domain-middleware');
-var connect = require('connect');
+Usually, [domain](http://nodejs.org/docs/latest/api/domain.html) usage goes hand-in-hand with the [cluster](http://nodejs.org/docs/latest/api/cluster.html) module, since the master process can fork a new worker when a worker encounters an error. 
+Please see [connect_with_cluster](https://github.com/fengmk2/domain-middleware/tree/master/example/connect_with_cluster) example.
 
+This below code just for dev demo, don't use it on production env: 
+
+```js
+var http = require('http');
+var connect = require('connect');
+var domainMiddleware = require('domain-middleware');
+
+var server = http.createServer();
 var app = connect()
-.use(domain())
+.use(domainMiddleware({
+  server: server,
+  killTimeout: 30000,
+}))
 .use(function(req, res){
   if (Math.random() > 0.5) {
     foo.bar();
@@ -44,7 +56,8 @@ var app = connect()
   res.end(err.message);
 });
 
-app.listen(1984);
+server.on('request', app);
+server.listen(1984);
 ```
 
 ## License 

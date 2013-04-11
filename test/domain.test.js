@@ -10,6 +10,8 @@
  * Module dependencies.
  */
 
+var cluster = require('cluster');
+var http = require('http');
 var connect = require('connect');
 var connectDomain = require('../');
 var should = require('should');
@@ -55,27 +57,30 @@ describe('domain.test.js', function () {
     res.end(err.message);
   };
 
+  var server = http.createServer();
   var app = connect()
-  .use(connectDomain())
+  .use(connectDomain({ server: server, killTimeout: 1000 }))
   .use('/public', connect.static(__dirname + '/fixtures'))
   .use(normalHandler)
   .use(errorHandler);
 
+  server.on('request', app);
+
   it('should GET / status 200', function (done) {
-    request(app)
+    request(server)
     .get('/')
     .expect(200, done);
   });
 
   it('should GET /public/foo.js status 200', function (done) {
-    request(app)
+    request(server)
     .get('/public/foo.js')
     .expect('console.log(\'bar\');')
     .expect(200, done);
   });
 
   it('should GET /sync_error status 500', function (done) {
-    request(app)
+    request(server)
     .get('/sync_error')
     .expect('sync_error')
     .expect(500, done);
@@ -94,25 +99,35 @@ describe('domain.test.js', function () {
         // ...but be sure to re-enable mocha's error handler
         process.on('uncaughtException', mochaHandler);
         done();
-      }, 500);
+      }, 2000);
+    });
+
+    beforeEach(function () {
+      cluster.worker = {
+        disconnect: function () {}
+      };
+    });
+    afterEach(function () {
+      delete cluster.worker;
     });
 
     it('should GET /async_error status 500', function (done) {
-      request(app)
+      delete cluster.worker.disconnect;
+      request(server)
       .get('/async_error')
       .expect('ff is not defined')
       .expect(500, done);
     });
 
     it('should GET /async_error_twice status 500', function (done) {
-      request(app)
+      request(server)
       .get('/async_error_twice')
       .expect('ff is not defined')
       .expect(500, done);
     });
 
     it('should GET /async_error_triple status 500', function (done) {
-      request(app)
+      request(server)
       .get('/async_error_triple')
       .expect('ff is not defined')
       .expect(500, done);
