@@ -231,12 +231,22 @@ describe('domain middleware', function () {
         describe('when the server is already closed', function() {
 
           beforeEach(function() {
+            setupTestServer();
             server.close = sinon.stub().throws("test - server already closed");
           });
 
-          it.skip('should still shutdown');
-
-          it.skip('should still disconnect from the worker');
+          it('should still disconnect from the worker', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('ff is not defined')
+            .expect(500, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).to.have.been.calledOnce;
+              expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+              done();
+            });
+          });
         });
 
         describe('when not running in a cluster', function() {
@@ -245,11 +255,60 @@ describe('domain middleware', function () {
             delete cluster.worker;
           });
 
-          it.skip('should still shutdown');
-
-          it.skip('should still close the server');
+          it('should still close the server', function (done) {
+            setupTestServer();
+            request(app)
+            .get('/async_error')
+            .expect('ff is not defined')
+            .expect(500, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).to.have.been.calledOnce;
+              done();
+            });
+          });
         });
 
+        describe('when using a custom error callback', function() {
+          var onErrorStub;
+
+          beforeEach(function() {
+            onErrorStub = sinon.spy(function(req, res, next, err, options) {
+              // need to respond, but do it in a "testable" way
+              res.statusCode = 333;
+              res.end('foo');
+            });
+            setupTestServer({
+              onError: onErrorStub
+            });
+          });
+
+          it('should call it', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('foo')
+            .expect(333, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( onErrorStub ).to.have.been.calledOnce;
+              done();
+            });
+          });
+
+          it('should no longer call server close or cluster disconnect in this case', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('foo')
+            .expect(333, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).not.to.have.been.called; // up to the custom callback to do it if needed
+              expect( cluster.worker.disconnect ).not.to.have.been.called;
+              done();
+            });
+          });
+
+        });
       });
     });
   });

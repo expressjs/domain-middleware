@@ -8,10 +8,12 @@ An `uncaughtException` middleware for connect, using `domains` to allow a clean 
 Features :
 * creates a domain for the current request
 * detect errors bubbled to this domain
-* handles errors with the following pattern :
+* by default, handles errors with the following pattern :
   * respond to the corresponding request with the error handler
-  * starts a security suicide timeout in case the shutdown is blocked
+  * starts a security suicide timeout (configurable) in case the shutdown is blocked
   * prevent the server from accepting new connections
+  * if a cluster worker, signal the cluster master of the shutdown
+* a custom error callback may be provided if the default actions are not suitable
 * only starts the error callback once, subsequent errors are printed only
 
 
@@ -23,6 +25,8 @@ Interesting reads :
 * [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
 * [Error Handling in Node.js](http://www.joyent.com/developers/node/design/errors)
 * [node.js domain API](http://nodejs.org/api/domain.html)
+* [node.js cluster API](http://nodejs.org/api/cluster.html)
+
 
 
 ## Installation
@@ -73,6 +77,15 @@ app.use(domainMiddleware({
 
 
 server.listen(1984);
+```
+
+If the default error handling (shutdown timeout, server close, cluster disconnect) doesn't fit your need,
+a custom error callback can be provided:
+```
+app.use(domainMiddleware({
+  onError: myErrorHandler  <-- params : (req, res, next, err, options)
+  // all other options no longer have any meaning unless used in the custom callback
+}))
 ```
 
 ## Contributing
