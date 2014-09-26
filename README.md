@@ -5,6 +5,16 @@ domain-middleware [![Build Status](https://secure.travis-ci.org/expressjs/domain
 
 An `uncaughtException` middleware for connect, using `domains` to allow a clean uncaught errors handling. This module tries to be a better [connect-domain](https://github.com/baryshev/connect-domain) module.
 
+Features :
+* creates a domain for the current request
+* detect errors bubbled to this domain
+* handles errors with the following pattern :
+  * respond to the corresponding request with the error handler
+  * starts a security suicide timeout in case the shutdown is blocked
+  * prevent the server from accepting new connections
+* only starts the error callback once, subsequent errors are printed only
+
+
 Tested with express 4. Should work with express 3 and connect.
 
 See also [node-domain-middleware](https://github.com/brianc/node-domain-middleware), [express-domain-errors](https://github.com/mathrawka/express-domain-errors)
@@ -30,12 +40,13 @@ This below code just for dev demo, don't use it on production env:
 
 ```js
 var http = require('http');
-var connect = require('connect');
+var express = require('express');
 var domainMiddleware = require('domain-middleware');
 
-var server = http.createServer();
-var app = connect()
-.use(domainMiddleware({
+var app = express();
+var server = http.createServer(app);
+
+app.use(domainMiddleware({
   server: server,
   killTimeout: 30000,
 }))
@@ -60,7 +71,7 @@ var app = connect()
   res.end(err.message);
 });
 
-server.on('request', app);
+
 server.listen(1984);
 ```
 
