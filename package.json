@@ -9,21 +9,21 @@
   "dependencies": {
   },
   "devDependencies": {
-    "connect": "*",
-    "should": "*",
-    "supertest": "*",
+    "express": "^4.0",
     "jscover": "*",
-    "mocha": "*"
+    "mocha": "*",
+    "should": "*",
+    "supertest": "*"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/fengmk2/domain-middleware.git"
+    "url": "git://github.com/expressjs/domain-middleware.git"
   },
   "keywords": [
     "domain", "uncaughtException", "error", "connect", "cluster"
   ],
   "engines": {
-    "node": ">= 0.8.0"
+    "node": ">= 0.10.0"
   },
   "author": "fengmk2 <fengmk2@gmail.com>",
   "license": "MIT"

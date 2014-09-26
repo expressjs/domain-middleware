@@ -1,17 +1,19 @@
-domain-middleware [![Build Status](https://secure.travis-ci.org/fengmk2/domain-middleware.png)](http://travis-ci.org/fengmk2/domain-middleware)
+domain-middleware [![Build Status](https://secure.travis-ci.org/expressjs/domain-middleware.png)](http://travis-ci.org/expressjs/domain-middleware)
 =======
 
-![logo](https://raw.github.com/fengmk2/domain-middleware/master/logo.png)
+![logo](https://raw.github.com/expressjs/domain-middleware/master/logo.png)
 
-`uncaughtException` middleware for connect, base on `domain` module.
+An `uncaughtException` middleware for connect, using `domains` to allow a clean uncaught errors handling. This module tries to be a better [connect-domain](https://github.com/baryshev/connect-domain) module.
 
-Try to make a better [connect-domain](https://github.com/baryshev/connect-domain) module.
+Tested with express 4. Should work with express 3 and connect.
 
-[Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
+Interesting reads :
+* [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
+* [Error Handling in Node.js](http://www.joyent.com/developers/node/design/errors)
+* [node.js domain API](http://nodejs.org/api/domain.html)
 
-* jscoverage: [100%](http://fengmk2.github.com/coverage/domain-middleware.html)
 
-## Install
+## Installation
 
 ```bash
 $ npm install domain-middleware
@@ -19,10 +21,10 @@ $ npm install domain-middleware
 
 ## Usage
 
-Usually, [domain](http://nodejs.org/docs/latest/api/domain.html) usage goes hand-in-hand with the [cluster](http://nodejs.org/docs/latest/api/cluster.html) module, since the master process can fork a new worker when a worker encounters an error. 
-Please see [connect_with_cluster](https://github.com/fengmk2/domain-middleware/tree/master/example/connect_with_cluster) example.
+Usually, [domain](http://nodejs.org/api/domain.html) usage goes hand-in-hand with the [cluster](http://nodejs.org/api/cluster.html) module, since the master process can fork a new worker when a worker encounters an error.
+Please see [connect_with_cluster](https://github.com/expressjs/domain-middleware/tree/master/example/connect_with_cluster) example.
 
-This below code just for dev demo, don't use it on production env: 
+This below code just for dev demo, don't use it on production env:
 
 ```js
 var http = require('http');
@@ -60,7 +62,22 @@ server.on('request', app);
 server.listen(1984);
 ```
 
-## License 
+## Contributing
+Thank you for contributing !
+
+You may want to create an issue first if you are not sure.
+
+* fork
+* clone
+* `cd domain-middleware`
+* `make test`
+* (optional : start a branch)
+* add tests
+* add features
+* send pull request https://help.github.com/articles/be-social#pull-requests
+
+
+## License
 
 (The MIT License)
 
