@@ -7,6 +7,8 @@ An `uncaughtException` middleware for connect, using `domains` to allow a clean 
 
 Tested with express 4. Should work with express 3 and connect.
 
+See also [node-domain-middleware](https://github.com/brianc/node-domain-middleware), [express-domain-errors](https://github.com/mathrawka/express-domain-errors)
+
 Interesting reads :
 * [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
 * [Error Handling in Node.js](http://www.joyent.com/developers/node/design/errors)
