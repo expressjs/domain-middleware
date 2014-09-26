@@ -19,10 +19,10 @@ $ npm install domain-middleware
 
 ## Usage
 
-Usually, [domain](http://nodejs.org/docs/latest/api/domain.html) usage goes hand-in-hand with the [cluster](http://nodejs.org/docs/latest/api/cluster.html) module, since the master process can fork a new worker when a worker encounters an error. 
+Usually, [domain](http://nodejs.org/docs/latest/api/domain.html) usage goes hand-in-hand with the [cluster](http://nodejs.org/docs/latest/api/cluster.html) module, since the master process can fork a new worker when a worker encounters an error.
 Please see [connect_with_cluster](https://github.com/fengmk2/domain-middleware/tree/master/example/connect_with_cluster) example.
 
-This below code just for dev demo, don't use it on production env: 
+This below code just for dev demo, don't use it on production env:
 
 ```js
 var http = require('http');
@@ -60,7 +60,22 @@ server.on('request', app);
 server.listen(1984);
 ```
 
-## License 
+## Contributing
+Thank you for contributing !
+
+You may want to create an issue first if you are not sure.
+
+* fork
+* clone
+* `cd domain-middleware`
+* `make test`
+* (optional : start a branch)
+* add tests
+* add features
+* send pull request https://help.github.com/articles/be-social#pull-requests
+
+
+## License
 
 (The MIT License)
 
