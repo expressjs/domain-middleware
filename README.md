@@ -5,12 +5,28 @@ domain-middleware [![Build Status](https://secure.travis-ci.org/expressjs/domain
 
 An `uncaughtException` middleware for connect, using `domains` to allow a clean uncaught errors handling. This module tries to be a better [connect-domain](https://github.com/baryshev/connect-domain) module.
 
+Features :
+* creates a domain for the current request
+* detect errors bubbled to this domain
+* by default, handles errors with the following pattern :
+  * respond to the corresponding request with the error handler
+  * starts a security suicide timeout (configurable) in case the shutdown is blocked
+  * prevent the server from accepting new connections
+  * if a cluster worker, signal the cluster master of the shutdown
+* a custom error callback may be provided if the default actions are not suitable
+* only starts the error callback once, subsequent errors are printed only
+
+
 Tested with express 4. Should work with express 3 and connect.
+
+See also [node-domain-middleware](https://github.com/brianc/node-domain-middleware), [express-domain-errors](https://github.com/mathrawka/express-domain-errors)
 
 Interesting reads :
 * [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
 * [Error Handling in Node.js](http://www.joyent.com/developers/node/design/errors)
 * [node.js domain API](http://nodejs.org/api/domain.html)
+* [node.js cluster API](http://nodejs.org/api/cluster.html)
+
 
 
 ## Installation
@@ -28,12 +44,13 @@ This below code just for dev demo, don't use it on production env:
 
 ```js
 var http = require('http');
-var connect = require('connect');
+var express = require('express');
 var domainMiddleware = require('domain-middleware');
 
-var server = http.createServer();
-var app = connect()
-.use(domainMiddleware({
+var app = express();
+var server = http.createServer(app);
+
+app.use(domainMiddleware({
   server: server,
   killTimeout: 30000,
 }))
@@ -58,8 +75,17 @@ var app = connect()
   res.end(err.message);
 });
 
-server.on('request', app);
+
 server.listen(1984);
+```
+
+If the default error handling (shutdown timeout, server close, cluster disconnect) doesn't fit your need,
+a custom error callback can be provided:
+```
+app.use(domainMiddleware({
+  onError: myErrorHandler  <-- params : (req, res, next, err, options)
+  // all other options no longer have any meaning unless used in the custom callback
+}))
 ```
 
 ## Contributing

@@ -3,136 +3,313 @@
  * Copyright(c) 2012 fengmk2 <fengmk2@gmail.com>
  * MIT Licensed
  */
-
 "use strict";
 
-/**
- * Module dependencies.
- */
+
+var sinon = require("sinon");
+
+var chai = require('chai')
+chai.config.includeStack = true; // defaults to false
+var expect = chai.expect;
+chai.use( require('sinon-chai') );
+
 
 var cluster = require('cluster');
-var http = require('http');
 var express = require('express');
-var connectDomain = require('../');
-var should = require('should');
+
+var domainMiddleware = require('../');
+
 var request = require('supertest');
 
-describe('domain.test.js', function () {
-  var normalHandler = function normalHandler(req, res, next) {
-    if (req.url === '/sync_error') {
-      throw new Error('sync_error');
-    }
-    if (req.url === '/async_error') {
-      process.nextTick(function () {
-        ff.foo();
-      });
-      return;
-    }
-    if (req.url === '/async_error_twice') {
-      setTimeout(function () {
-        ff.foo();
-      }, 100);
-      setTimeout(function () {
-        bar.bar();
-      }, 200);
-      return;
-    }
-    if (req.url === '/async_error_triple') {
-      setTimeout(function () {
-        ff.foo();
-      }, 100);
-      setTimeout(function () {
-        bar.bar();
-      }, 200);
-      setTimeout(function () {
-        hehe.bar();
-      }, 200);
-      return;
-    }
-    res.end(req.url);
-  };
-
-  var errorHandler = function errorHandler(err, req, res, next) {
-    res.statusCode = 500;
-    res.end(err.message);
-  };
-
-  var app = express();
-  var server = http.createServer(app);
-
-  app.use(connectDomain({ server: server, killTimeout: 1000 }));
-  app.use('/public', express.static(__dirname + '/fixtures'));
-  app.use(normalHandler);
-  app.use(errorHandler);
+describe('domain middleware', function () {
 
 
-  it('should GET / status 200', function (done) {
-    request(app)
-    .get('/')
-    .expect(200, done);
-  });
+  describe('parameters check', function() {
 
-  it('should GET /public/foo.js status 200', function (done) {
-    request(app)
-    .get('/public/foo.js')
-    .expect('console.log(\'bar\');')
-    .expect(200, done);
-  });
-
-  it('should GET /sync_error status 500', function (done) {
-    request(app)
-    .get('/sync_error')
-    .expect('sync_error')
-    .expect(500, done);
-  });
-
-  describe('hack for async error', function () {
-    // Because `domain` will still throw `uncaughtException`, we need to hack for `mocha` test.
-    // https://github.com/joyent/node/issues/4375
-    // https://gist.github.com/4179636
-    var mochaHandler;
-    before(function () {
-      mochaHandler = process.listeners('uncaughtException').pop();
-    });
-    after(function (done) {
-      setTimeout(function () {
-        // ...but be sure to re-enable mocha's error handler
-        process.on('uncaughtException', mochaHandler);
-        done();
-      }, 2000);
+    it('should detect missing server', function() {
+      var tempfn = function() { domainMiddleware( { /* missing server param */ } ); };
+      expect( tempfn).to.throw(Error, 'server required!');
     });
 
-    beforeEach(function () {
-      cluster.worker = {
-        disconnect: function () {}
+  });
+
+
+  describe('when installed on an express app', function() {
+    var setupTestServer;
+    var app, server;
+
+    beforeEach(function() {
+      setupTestServer = function(options) {
+        options = options || {};
+
+        server = {
+          close: sinon.stub()
+        };
+
+        options.killTimeout = options.killTimeout || 1000;
+        options.server = options.server || server;
+
+        app = express();
+
+        app.use(domainMiddleware( options ));
+
+        app.use('/public', express.static(__dirname + '/fixtures'));
+
+        app.get('/sync_error', function (req, res) {
+          throw new Error('sync_error');
+        });
+
+        app.get('/async_error', function (req, res) {
+          process.nextTick(function () {
+            ff.foo();
+          });
+        });
+
+        app.get('/async_error_twice', function (req, res) {
+          setTimeout(function () {
+            ff.foo();
+          }, 100);
+          setTimeout(function () {
+            bar.bar();
+          }, 200);
+        });
+
+        app.get('/async_error_thrice', function (req, res) {
+          setTimeout(function () {
+            ff.foo();
+          }, 100);
+          setTimeout(function () {
+            bar.bar();
+          }, 200);
+          setTimeout(function () {
+            hehe.bar();
+          }, 300);
+        });
+
+        // fallback
+        app.get('*', function (req, res) {
+          res.end(req.url);
+        });
+
+        // four param error handler
+        app.use(function errorHandler(err, req, res, next) {
+          res.statusCode = 500;
+          res.end(err.message);
+        });
       };
     });
-    afterEach(function () {
-      delete cluster.worker;
+
+    describe('when processing requests with no errors', function() {
+
+      it('should not interfere with a dynamic request', function (done) {
+        setupTestServer();
+        request(app)
+        .get('/')
+        .expect(200, done); // 200 OK
+      });
+
+      it('should not interfere with a static file request', function (done) {
+        setupTestServer();
+        request(app)
+        .get('/public/foo.js')
+        .expect('console.log(\'bar\');')
+        .expect(200, done); // 200 OK
+      });
+
     });
 
-    it('should GET /async_error status 500', function (done) {
-      delete cluster.worker.disconnect;
-      request(app)
-      .get('/async_error')
-      .expect('ff is not defined')
-      .expect(500, done);
-    });
+    describe('when processing requests throwing an error', function() {
+      var mochaHandler;
 
-    it('should GET /async_error_twice status 500', function (done) {
-      request(app)
-      .get('/async_error_twice')
-      .expect('ff is not defined')
-      .expect(500, done);
-    });
+      // Because `domain` will still throw `uncaughtException`, we need to hack for `mocha` test.
+      // https://github.com/joyent/node/issues/4375
+      // https://gist.github.com/4179636
+      before(function () {
+        mochaHandler = process.listeners('uncaughtException').pop();
+      });
+      after(function (done) {
+        setTimeout(function () {
+          // ...but be sure to re-enable mocha's error handler
+          process.on('uncaughtException', mochaHandler);
+          done();
+        }, 2000);
+      });
 
-    it('should GET /async_error_triple status 500', function (done) {
-      request(app)
-      .get('/async_error_triple')
-      .expect('ff is not defined')
-      .expect(500, done);
-    });
+      // cluster mocking
+      beforeEach(function () {
+        cluster.worker = {
+          disconnect: sinon.stub()
+        };
+      });
+      afterEach(function () {
+        delete cluster.worker;
+      });
 
+      describe('synchronous', function() {
+
+        it('should catch and handle the error', function (done) {
+          setupTestServer();
+          request(app)
+          .get('/sync_error')
+          .expect('sync_error')
+          .expect(500, done);
+        });
+
+        it('should not shutdown', function (done) {
+          setupTestServer();
+          request(app)
+          .get('/sync_error')
+          .expect(500, function(err) {
+            if(err) done(err);
+            // additional tests
+            expect( server.close ).not.to.have.been.called; // sane error, no need to shutdown the server
+            expect( cluster.worker.disconnect ).not.to.have.been.called;
+            done();
+          });
+        });
+
+      });
+
+      describe('asynchronous', function() {
+
+        it('should catch and handle the error', function (done) {
+          setupTestServer();
+          request(app)
+          .get('/async_error')
+          .expect('ff is not defined')
+          .expect(500, done);
+        });
+
+        it('should shutdown', function (done) {
+          setupTestServer();
+          request(app)
+          .get('/async_error')
+          .expect('ff is not defined')
+          .expect(500, function(err) {
+            if(err) done(err);
+            // additional tests
+            expect( server.close ).to.have.been.calledOnce;
+            expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+            done();
+          });
+        });
+
+        describe('when followed by other async errors', function() {
+
+          it('should catch and handle the error even if a second async error is thrown', function (done) {
+            setupTestServer();
+            request(app)
+            .get('/async_error_twice')
+            .expect('ff is not defined')
+            .expect(500, done);
+          });
+
+          it('should catch and handle the error even if two other async errors are thrown', function (done) {
+            setupTestServer();
+            request(app)
+            .get('/async_error_thrice')
+            .expect('ff is not defined')
+            .expect(500, done);
+          });
+
+          it('should shutdown, and only once', function (done) {
+            setupTestServer();
+            request(app)
+            .get('/async_error_thrice') // worst case
+            .expect('ff is not defined')
+            .expect(500, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).to.have.been.calledOnce;
+              expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+              done();
+            });
+          });
+
+        });
+
+        describe('when the server is already closed', function() {
+
+          beforeEach(function() {
+            setupTestServer();
+            server.close = sinon.stub().throws("test - server already closed");
+          });
+
+          it('should still disconnect from the worker', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('ff is not defined')
+            .expect(500, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).to.have.been.calledOnce;
+              expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+              done();
+            });
+          });
+        });
+
+        describe('when not running in a cluster', function() {
+
+          beforeEach(function() {
+            delete cluster.worker;
+          });
+
+          it('should still close the server', function (done) {
+            setupTestServer();
+            request(app)
+            .get('/async_error')
+            .expect('ff is not defined')
+            .expect(500, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).to.have.been.calledOnce;
+              done();
+            });
+          });
+        });
+
+        describe('when using a custom error callback', function() {
+          var onErrorStub;
+
+          beforeEach(function() {
+            onErrorStub = sinon.spy(function(req, res, next, err, options) {
+              // need to respond, but do it in a "testable" way
+              res.statusCode = 333;
+              res.end('foo');
+            });
+            setupTestServer({
+              onError: onErrorStub
+            });
+          });
+
+          it('should call it', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('foo')
+            .expect(333, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( onErrorStub ).to.have.been.calledOnce;
+              done();
+            });
+          });
+
+          it('should no longer call server close or cluster disconnect in this case', function (done) {
+            request(app)
+            .get('/async_error')
+            .expect('foo')
+            .expect(333, function(err) {
+              if(err) done(err);
+              // additional tests
+              expect( server.close ).not.to.have.been.called; // up to the custom callback to do it if needed
+              expect( cluster.worker.disconnect ).not.to.have.been.called;
+              done();
+            });
+          });
+
+        });
+      });
+    });
   });
-
 });
