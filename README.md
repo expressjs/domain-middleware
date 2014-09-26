@@ -5,6 +5,8 @@ domain-middleware [![Build Status](https://secure.travis-ci.org/expressjs/domain
 
 An `uncaughtException` middleware for connect, using `domains` to allow a clean uncaught errors handling. This module tries to be a better [connect-domain](https://github.com/baryshev/connect-domain) module.
 
+Tested with express 4. Should work with express 3 and connect.
+
 Interesting reads :
 * [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
 * [Error Handling in Node.js](http://www.joyent.com/developers/node/design/errors)

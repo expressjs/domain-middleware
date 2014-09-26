@@ -1,5 +1,5 @@
 /*!
- * connect-domain - test/domian.test.js
+ * domain-middleware - test/domain.test.js
  * Copyright(c) 2012 fengmk2 <fengmk2@gmail.com>
  * MIT Licensed
  */
@@ -12,7 +12,7 @@
 
 var cluster = require('cluster');
 var http = require('http');
-var connect = require('connect');
+var express = require('express');
 var connectDomain = require('../');
 var should = require('should');
 var request = require('supertest');
@@ -57,30 +57,30 @@ describe('domain.test.js', function () {
     res.end(err.message);
   };
 
-  var server = http.createServer();
-  var app = connect()
-  .use(connectDomain({ server: server, killTimeout: 1000 }))
-  .use('/public', connect.static(__dirname + '/fixtures'))
-  .use(normalHandler)
-  .use(errorHandler);
+  var app = express();
+  var server = http.createServer(app);
 
-  server.on('request', app);
+  app.use(connectDomain({ server: server, killTimeout: 1000 }));
+  app.use('/public', express.static(__dirname + '/fixtures'));
+  app.use(normalHandler);
+  app.use(errorHandler);
+
 
   it('should GET / status 200', function (done) {
-    request(server)
+    request(app)
     .get('/')
     .expect(200, done);
   });
 
   it('should GET /public/foo.js status 200', function (done) {
-    request(server)
+    request(app)
     .get('/public/foo.js')
     .expect('console.log(\'bar\');')
     .expect(200, done);
   });
 
   it('should GET /sync_error status 500', function (done) {
-    request(server)
+    request(app)
     .get('/sync_error')
     .expect('sync_error')
     .expect(500, done);
@@ -113,26 +113,26 @@ describe('domain.test.js', function () {
 
     it('should GET /async_error status 500', function (done) {
       delete cluster.worker.disconnect;
-      request(server)
+      request(app)
       .get('/async_error')
       .expect('ff is not defined')
       .expect(500, done);
     });
 
     it('should GET /async_error_twice status 500', function (done) {
-      request(server)
+      request(app)
       .get('/async_error_twice')
       .expect('ff is not defined')
       .expect(500, done);
     });
 
     it('should GET /async_error_triple status 500', function (done) {
-      request(server)
+      request(app)
       .get('/async_error_triple')
       .expect('ff is not defined')
       .expect(500, done);
     });
-    
+
   });
 
 });
