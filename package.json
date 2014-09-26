@@ -9,10 +9,13 @@
   "dependencies": {
   },
   "devDependencies": {
+    "chai": "*",
     "express": "^4.0",
     "jscover": "*",
     "mocha": "*",
     "should": "*",
+    "sinon": "*",
+    "sinon-chai": "*",
     "supertest": "*"
   },
   "repository": {
