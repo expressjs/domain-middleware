@@ -12,7 +12,7 @@ var chai = require('chai')
 chai.config.includeStack = true; // defaults to false
 var expect = chai.expect;
 chai.use( require('sinon-chai') );
-
+var EventEmitter = require('events').EventEmitter;
 
 var cluster = require('cluster');
 var express = require('express');
@@ -38,13 +38,25 @@ describe('domain middleware', function () {
     var setupTestServer;
     var app, server;
 
+    // mock a server
     beforeEach(function() {
+      server = new EventEmitter();
+      server.close = sinon.stub();
+    });
+
+    // mock being a cluster worker
+    beforeEach(function() {
+      cluster.worker = new EventEmitter();
+      cluster.worker.disconnect = sinon.stub();
+    });
+    afterEach(function () {
+      delete cluster.worker;
+    });
+
+    beforeEach(function() {
+      // offering a function allows tests to change env / options prior to instantiating the test server
       setupTestServer = function(options) {
         options = options || {};
-
-        server = {
-          close: sinon.stub()
-        };
 
         options.killTimeout = options.killTimeout || 1000;
         options.server = options.server || server;
@@ -91,7 +103,7 @@ describe('domain middleware', function () {
           res.end(req.url);
         });
 
-        // four param error handler
+        // four params error handler
         app.use(function errorHandler(err, req, res, next) {
           res.statusCode = 500;
           res.end(err.message);
@@ -121,7 +133,7 @@ describe('domain middleware', function () {
     describe('when processing requests throwing an error', function() {
       var mochaHandler;
 
-      // Because `domain` will still throw `uncaughtException`, we need to hack for `mocha` test.
+      // Hack : Because `domain` will still throw `uncaughtException`, we need to hack for `mocha` test.
       // https://github.com/joyent/node/issues/4375
       // https://gist.github.com/4179636
       before(function () {
@@ -135,16 +147,6 @@ describe('domain middleware', function () {
         }, 2000);
       });
 
-      // cluster mocking
-      beforeEach(function () {
-        cluster.worker = {
-          disconnect: sinon.stub()
-        };
-      });
-      afterEach(function () {
-        delete cluster.worker;
-      });
-
       describe('synchronous', function() {
 
         it('should catch and handle the error', function (done) {
@@ -155,7 +157,7 @@ describe('domain middleware', function () {
           .expect(500, done);
         });
 
-        it('should not shutdown', function (done) {
+        it('should not shutdown since it\'s not harmful', function (done) {
           setupTestServer();
           request(app)
           .get('/sync_error')
@@ -180,16 +182,23 @@ describe('domain middleware', function () {
           .expect(500, done);
         });
 
-        it('should shutdown', function (done) {
+        it('should disconnect the worker', function (done) {
           setupTestServer();
           request(app)
           .get('/async_error')
-          .expect('ff is not defined')
           .expect(500, function(err) {
             if(err) done(err);
-            // additional tests
-            expect( server.close ).to.have.been.calledOnce;
             expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+            done();
+          });
+        });
+
+        it('should not attempt to close the server since worker.disconnect handle it', function (done) {
+          request(app)
+          .get('/async_error')
+          .expect(500, function(err) {
+            if(err) done(err);
+            expect( server.close ).not.to.have.been.called;
             done();
           });
         });
@@ -216,11 +225,8 @@ describe('domain middleware', function () {
             setupTestServer();
             request(app)
             .get('/async_error_thrice') // worst case
-            .expect('ff is not defined')
             .expect(500, function(err) {
               if(err) done(err);
-              // additional tests
-              expect( server.close ).to.have.been.calledOnce;
               expect( cluster.worker.disconnect ).to.have.been.calledOnce;
               done();
             });
@@ -228,22 +234,20 @@ describe('domain middleware', function () {
 
         });
 
-        describe('when the server is already closed', function() {
+        describe('when the worker is already disconnected', function() {
 
           beforeEach(function() {
             setupTestServer();
-            server.close = sinon.stub().throws("test - server already closed");
+            expect( cluster.worker.emit('disconnect') ).to.be.true; // true means there was at last one handler
+            cluster.worker.disconnect = sinon.stub().throws("test - worker already disconnected");
           });
 
-          it('should still disconnect from the worker', function (done) {
+          it('should not attempt to disconnect the worker again', function (done) {
             request(app)
             .get('/async_error')
-            .expect('ff is not defined')
             .expect(500, function(err) {
               if(err) done(err);
-              // additional tests
-              expect( server.close ).to.have.been.calledOnce;
-              expect( cluster.worker.disconnect ).to.have.been.calledOnce;
+              expect( cluster.worker.disconnect ).not.to.have.been.called;
               done();
             });
           });
@@ -255,16 +259,33 @@ describe('domain middleware', function () {
             delete cluster.worker;
           });
 
-          it('should still close the server', function (done) {
+          it('should close the server', function (done) {
             setupTestServer();
             request(app)
             .get('/async_error')
-            .expect('ff is not defined')
             .expect(500, function(err) {
               if(err) done(err);
-              // additional tests
               expect( server.close ).to.have.been.calledOnce;
               done();
+            });
+          });
+
+          describe('when the server is already closed', function() {
+
+            beforeEach(function() {
+              setupTestServer();
+              expect( server.emit('close') ).to.be.true; // true means there was at last one handler
+              server.close = sinon.stub().throws("test - server already closed");
+            });
+
+            it('should not attempt to close the server again', function (done) {
+              request(app)
+              .get('/async_error')
+              .expect(500, function(err) {
+                if(err) done(err);
+                expect( server.close ).not.to.have.been.called;
+                done();
+              });
             });
           });
         });
@@ -295,15 +316,14 @@ describe('domain middleware', function () {
             });
           });
 
-          it('should no longer call server close or cluster disconnect in this case', function (done) {
+          it('should not call server close or cluster disconnect in this case', function (done) {
             request(app)
             .get('/async_error')
             .expect('foo')
             .expect(333, function(err) {
               if(err) done(err);
-              // additional tests
               expect( server.close ).not.to.have.been.called; // up to the custom callback to do it if needed
-              expect( cluster.worker.disconnect ).not.to.have.been.called;
+              expect( cluster.worker.disconnect ).not.to.have.been.called; // idem
               done();
             });
           });
