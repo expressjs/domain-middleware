@@ -21,7 +21,7 @@ Features :
 
 Tested with express 4. Should work with express 3 and connect.
 
-See also [node-domain-middleware](https://github.com/brianc/node-domain-middleware), [express-domain-errors](https://github.com/mathrawka/express-domain-errors)
+See also [node-domain-middleware](https://github.com/brianc/node-domain-middleware), [express-domain-errors](https://github.com/mathrawka/express-domain-errors), [express-err](https://github.com/neoziro/express-err)
 
 Interesting reads :
 * [Warning: Don't Ignore Errors!](http://nodejs.org/docs/latest/api/domain.html#domain_warning_don_t_ignore_errors)
